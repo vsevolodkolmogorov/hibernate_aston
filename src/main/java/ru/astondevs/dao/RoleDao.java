@@ -24,7 +24,6 @@ public class RoleDao {
             transaction.begin();
             session.persist(role);
             transaction.commit();
-            ConnectionManager.closeSession(session);
         } catch (Exception e) {
             if (transaction != null) transaction.rollback();
             throw e;
@@ -45,7 +44,6 @@ public class RoleDao {
             session.remove(role);
 
             transaction.commit();
-            ConnectionManager.closeSession(session);
         } catch (Exception e) {
             if (transaction != null) transaction.rollback();
             throw e;

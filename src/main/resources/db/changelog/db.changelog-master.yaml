@@ -35,7 +35,7 @@ databaseChangeLog:
       author: vsevolodkolmogorov
       changes:
         - createTable:
-            tableName: user
+            tableName: users
             columns:
               - column:
                   name: id
@@ -51,6 +51,11 @@ databaseChangeLog:
               - column:
                   name: email
                   type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: create_at
+                  type: TIMESTAMP
                   constraints:
                     nullable: false
               - column:

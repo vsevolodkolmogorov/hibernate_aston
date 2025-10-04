@@ -14,9 +14,9 @@ import java.util.function.Function;
 
 public class ConnectionManager {
 
-    private static final SessionFactory sessionFactory;
+    private static SessionFactory sessionFactory;
 
-    static {
+    public static void init() {
         try (InputStream inputStream = ConnectionManager.class
                 .getClassLoader()
                 .getResourceAsStream("config.properties")) {
@@ -28,23 +28,26 @@ public class ConnectionManager {
             Properties properties = new Properties();
             properties.load(inputStream);
 
-            Configuration configuration = new Configuration();
-            configuration.setProperties(properties);
-            configuration.addAnnotatedClass(User.class);
-            configuration.addAnnotatedClass(Role.class);
-
-            sessionFactory = configuration.buildSessionFactory();
+            init(properties);
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to initialize ConnectionManager", e);
         }
+    }
 
+    public static void init(Properties properties) {
+        Configuration configuration = new Configuration();
+        configuration.setProperties(properties);
+        configuration.addAnnotatedClass(User.class);
+        configuration.addAnnotatedClass(Role.class);
+        sessionFactory = configuration.buildSessionFactory();
     }
 
     private ConnectionManager() {
     }
 
     public static Session openSession() {
+        if (sessionFactory == null) throw new IllegalStateException("SessionFactory not initialized");
         return sessionFactory.openSession();
     }
 

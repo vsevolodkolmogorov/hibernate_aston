@@ -41,7 +41,6 @@ public class LiquibaseRunner {
                         database
                 );
 
-
                 liquibase.update(new liquibase.Contexts(), new liquibase.LabelExpression());
             }
         } catch (Exception e) {

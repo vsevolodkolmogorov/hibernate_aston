@@ -6,22 +6,31 @@ import ru.astondevs.dto.UserDto;
 import ru.astondevs.entity.Role;
 import ru.astondevs.entity.User;
 import ru.astondevs.errors.EmptyFieldException;
+import ru.astondevs.errors.RoleNotFoundedException;
+import ru.astondevs.errors.UserNotFoundedException;
 import ru.astondevs.util.UserMapper;
 
+import javax.management.relation.RoleNotFoundException;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class UserService {
-    private final RoleDao roleDao = RoleDao.getInstance();
-    private final UserDao userDao = UserDao.getInstance();
+    private final RoleDao roleDao;
+    private final UserDao userDao;
     private static final Logger log = Logger.getLogger(UserService.class.getName());
+
+    public UserService(UserDao userDao, RoleDao roleDao) {
+        this.userDao = userDao;
+        this.roleDao = roleDao;
+    }
 
     public UserDto save(UserDto user) {
         try {
             log.info("Сохраняем нового пользователя");
             Role role = roleDao.findById(user.getRole_id());
+            if (role == null) throw new RoleNotFoundedException("Роль с id: " + user.getRole_id() + " не найден!");
             User entityUser = UserMapper.convertDtoToEntity(user, role);
             userFieldsValidation(entityUser);
 
@@ -35,6 +44,7 @@ public class UserService {
     }
 
     public void delete(Long id) {
+        if (id == null) throw new UserNotFoundedException("Пользователь с id: " + id + " не найден!");
         log.info("Удаляем пользователя с id: " + id);
         userDao.delete(id);
     }
@@ -49,11 +59,15 @@ public class UserService {
     public UserDto findById(Long id) {
         log.info("Ищем пользователя с id: " + id);
         User user = userDao.findById(id);
-        if (user == null) return null;
+        if (user == null) throw new UserNotFoundedException("Пользователь с id: " + id + " не найден!");
         return UserMapper.convertEntityToDto(user);
     }
 
     public UserDto update(Long id, UserDto user) {
+        if (userDao.findById(id) == null) {
+            throw new UserNotFoundedException("Пользователь с id: " + id  + " не найден!");
+        }
+
         try {
             log.info("Обновляем пользователя с id: " + id);
             Role role = roleDao.findById(user.getRole_id());
@@ -79,7 +93,7 @@ public class UserService {
                         || (value instanceof String && ((String) value).isEmpty())
                         || (value instanceof Number && ((Number) value).intValue() == 0)) {
                     log.warning("Поле " + field.getName() + " пустое");
-                    throw new EmptyFieldException("Field " + field.getName() + " is empty");
+                    throw new EmptyFieldException("Поле " + field.getName() + " пустое");
                 }
             } catch (IllegalAccessException e) {
                 log.log(Level.SEVERE, "Ошибка доступа к полю: " + e.getMessage(), e);

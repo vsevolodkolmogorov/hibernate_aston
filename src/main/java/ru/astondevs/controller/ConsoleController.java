@@ -1,6 +1,7 @@
 package ru.astondevs.controller;
 
 import ru.astondevs.dao.RoleDao;
+import ru.astondevs.dao.UserDao;
 import ru.astondevs.dto.UserDto;
 import ru.astondevs.service.UserService;
 import ru.astondevs.util.ConsoleHelper;
@@ -9,7 +10,7 @@ import java.util.List;
 import java.util.Scanner;
 
 public class ConsoleController {
-    private final UserService userService = new UserService();
+    private final UserService userService = new UserService(UserDao.getInstance(),RoleDao.getInstance());
     private final RoleDao roleDao = RoleDao.getInstance();
     private final Scanner scanner = new Scanner(System.in);
     private final ConsoleHelper consoleHelper = new ConsoleHelper(scanner);

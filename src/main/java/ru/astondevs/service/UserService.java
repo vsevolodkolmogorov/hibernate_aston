@@ -10,7 +10,6 @@ import ru.astondevs.errors.RoleNotFoundedException;
 import ru.astondevs.errors.UserNotFoundedException;
 import ru.astondevs.util.UserMapper;
 
-import javax.management.relation.RoleNotFoundException;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.logging.Level;

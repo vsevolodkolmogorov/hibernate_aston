@@ -7,10 +7,7 @@ import liquibase.database.Database;
 import liquibase.database.DatabaseFactory;
 import liquibase.database.jvm.JdbcConnection;
 import liquibase.resource.ClassLoaderResourceAccessor;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.*;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -28,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 @Testcontainers
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestInstance(TestInstance.Lifecycle.PER_METHOD)
 class UserDaoTest {
 
     @Container
@@ -41,7 +38,7 @@ class UserDaoTest {
     private final UserDao userDao = UserDao.getInstance();
     private final RoleDao roleDao = RoleDao.getInstance();
 
-    @BeforeAll
+    @BeforeEach
     void setup() throws Exception {
         Properties props = new Properties();
         props.setProperty("hibernate.connection.url", postgres.getJdbcUrl());
@@ -148,6 +145,7 @@ class UserDaoTest {
     @Test
     @DisplayName("delete() - удалить несуществующего пользователя")
     void delete_ShouldNotFail_WhenUserNotExist() {
-        userDao.delete(999L);
+        assertThatThrownBy(() -> userDao.delete(999L))
+                .isInstanceOf(UserNotFoundedException.class);
     }
 }

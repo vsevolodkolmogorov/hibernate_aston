@@ -43,7 +43,7 @@ public class UserDao {
                 User user = session.find(User.class, id);
                 if (user == null) {
                     log.warning("Пользователь с id " + id + " не найден для удаления");
-                    return null;
+                    throw new UserNotFoundedException("Пользователь с id " + id + " не найден для удаления");
                 }
                 session.remove(user);
                 log.info("Пользователь удалён: " + user);

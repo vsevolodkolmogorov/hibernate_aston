@@ -281,8 +281,4 @@ class UserServiceTest {
                     .hasRootCauseMessage(expectedMessage);
         }
     }
-
-
-
-
 }

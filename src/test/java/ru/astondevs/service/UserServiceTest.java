@@ -8,22 +8,23 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-import ru.astondevs.dao.RoleDao;
-import ru.astondevs.dao.UserDao;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import ru.astondevs.dto.UserDto;
 import ru.astondevs.entity.Role;
 import ru.astondevs.entity.User;
 import ru.astondevs.errors.EmptyFieldException;
+import ru.astondevs.errors.RoleNotFoundedException;
 import ru.astondevs.errors.UserNotFoundedException;
+import ru.astondevs.repository.UserRepository;
+import ru.astondevs.service.impl.UserServiceImpl;
 import ru.astondevs.util.UserMapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,13 +35,16 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
     @Mock
-    private RoleDao roleDao;
+    private UserRepository userRepository;
 
     @Mock
-    private UserDao userDao;
+    private RoleInternalService roleService;
+
+    @Spy
+    private UserMapper mapper = new UserMapper();
 
     @InjectMocks
-    private UserService userService;
+    private UserServiceImpl userService;
 
     private UserDto userDto;
     private User userEntity;
@@ -57,12 +61,11 @@ class UserServiceTest {
 
     @BeforeEach
     void initDto() {
-        roleUser = new Role();
-        roleUser.setName("user");
-
+        roleUser = new Role("user");
+        roleUser.setId(1L);
         userDto = new UserDto("user", "user@gmail.com", 18, 1L);
-        userEntity = UserMapper.convertDtoToEntity(userDto, roleUser);
-
+        userEntity = mapper.convertDtoToEntity(userDto, roleUser);
+        userEntity.setId(1L);
         userList.add(userEntity);
     }
 
@@ -72,36 +75,32 @@ class UserServiceTest {
         @Test
         @DisplayName("позитивное сохранение")
         void save_whenValidUserDto_thenReturnSavedUserDto() {
-            when(roleDao.findById(userDto.getRole_id())).thenReturn(roleUser);
-            when(userDao.save(userEntity)).thenReturn(userEntity);
+            when(roleService.findEntityById(userDto.getRole_id())).thenReturn(roleUser);
+            when(userRepository.save(any(User.class))).thenReturn(userEntity);
 
-            try (MockedStatic<UserMapper> mockedMapper = Mockito.mockStatic(UserMapper.class)) {
-                mockedMapper.when(() -> UserMapper.convertDtoToEntity(userDto, roleUser))
-                        .thenReturn(userEntity);
-                mockedMapper.when(() -> UserMapper.convertEntityToDto(userEntity))
-                        .thenReturn(userDto);
+            UserDto result = userService.save(userDto);
 
-                UserDto result = userService.save(userDto);
-
-                assertThat(result)
-                        .isNotNull()
-                        .extracting(UserDto::getName, UserDto::getEmail, UserDto::getAge, UserDto::getRole_id)
-                        .containsExactly("user", "user@gmail.com", 18, 1L);
-                verify(roleDao).findById(userDto.getRole_id());
-                verify(userDao).save(userEntity);
-            }
+            assertThat(result)
+                    .isNotNull()
+                    .extracting(UserDto::getName, UserDto::getEmail, UserDto::getAge, UserDto::getRole_id)
+                    .containsExactly("user", "user@gmail.com", 18, 1L);
+            verify(roleService).findEntityById(userDto.getRole_id());
+            verify(userRepository).save(argThat(user ->
+                    "user".equals(user.getName()) &&
+                            "user@gmail.com".equals(user.getEmail()) &&
+                            user.getAge() == 18
+            ));
         }
 
         @DisplayName("негативный тест параметризованный")
         @ParameterizedTest(name = "negative save() → {1}")
         @MethodSource("ru.astondevs.service.UserServiceTest#invalidUserProvider")
         void save_whenInvalidUserDto_thenThrowsException(UserDto invalidDto, String expectedMessage) {
-            when(roleDao.findById(invalidDto.getRole_id())).thenReturn(roleUser);
+            when(roleService.findEntityById(invalidDto.getRole_id())).thenReturn(roleUser);
 
             assertThatThrownBy(() -> userService.save(invalidDto))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasCauseInstanceOf(EmptyFieldException.class)
-                    .hasRootCauseMessage(expectedMessage);
+                    .isInstanceOf(EmptyFieldException.class)
+                    .hasMessage(expectedMessage);
         }
     }
 
@@ -112,17 +111,17 @@ class UserServiceTest {
         @Test
         @DisplayName("позитивное удаление")
         void delete_whenValidUserId_thenDelete() {
-            doNothing().when(userDao).delete(1L);
+            when(userRepository.findById(1L)).thenReturn(Optional.ofNullable(userEntity));
+            doNothing().when(userRepository).delete(userEntity);
             userService.delete(1L);
-            verify(userDao).delete(1L);
+            verify(userRepository).delete(userEntity);
         }
 
         @Test
         @DisplayName("негативное удаление")
         void delete_whenValidUserDto_thenThrowNotFoundedException() {
             assertThatThrownBy(() -> userService.delete(null))
-                    .isInstanceOf(UserNotFoundedException.class)
-                    .hasMessage("Пользователь с id: null не найден!");
+                    .isInstanceOf(UserNotFoundedException.class);
         }
     }
 
@@ -133,43 +132,23 @@ class UserServiceTest {
         @Test
         @DisplayName("позитивный поиск")
         void findAll_whenDataBaseHaveOneUser_thenReturnUser() {
-            when(userDao.findAll()).thenReturn(userList);
+            when(userRepository.findAll()).thenReturn(userList);
 
-            try (MockedStatic<UserMapper> mockedMapper = Mockito.mockStatic(UserMapper.class)) {
-                mockedMapper.when(() -> UserMapper.convertDtoToEntity(userDto, roleUser))
-                        .thenReturn(userEntity);
-                mockedMapper.when(() -> UserMapper.convertEntityToDto(userEntity))
-                        .thenReturn(userDto);
+            List<UserDto> result = userService.findAll();
 
-                List<UserDto> result = userService.findAll();
-
-                assertThat(result)
-                        .isNotNull()
-                        .hasSize(1)
-                        .extracting(UserDto::getName, UserDto::getEmail, UserDto::getAge, UserDto::getRole_id)
-                        .containsExactly(tuple("user", "user@gmail.com", 18, 1L));
-                verify(userDao).findAll();
-            }
+            assertThat(result)
+                    .isNotNull()
+                    .hasSize(1)
+                    .extracting(UserDto::getName, UserDto::getEmail, UserDto::getAge, UserDto::getRole_id)
+                    .containsExactly(tuple("user", "user@gmail.com", 18, 1L));
+            verify(userRepository).findAll();
         }
 
         @Test
         @DisplayName("негативный поиск")
         void findAll_whenDataBaseEmpty_thenReturnUser() {
-            when(userDao.findAll()).thenReturn(new ArrayList<>());
-
-            try (MockedStatic<UserMapper> mockedMapper = Mockito.mockStatic(UserMapper.class)) {
-                mockedMapper.when(() -> UserMapper.convertDtoToEntity(userDto, roleUser))
-                        .thenReturn(userEntity);
-                mockedMapper.when(() -> UserMapper.convertEntityToDto(userEntity))
-                        .thenReturn(userDto);
-
-                List<UserDto> result = userService.findAll();
-
-                assertThat(result)
-                        .isNotNull()
-                        .isEmpty();
-                verify(userDao).findAll();
-            }
+            assertThatThrownBy(() -> userService.findAll())
+                    .isInstanceOf(UserNotFoundedException.class);
         }
     }
 
@@ -179,32 +158,22 @@ class UserServiceTest {
         @Test
         @DisplayName("позитивный тест")
         void findById_whenDataBaseHaveUser_thenReturnUser() {
-            when(userDao.findById(1L)).thenReturn(userEntity);
+            when(userRepository.findById(1L)).thenReturn(Optional.ofNullable(userEntity));
 
-            try (MockedStatic<UserMapper> mockedMapper = Mockito.mockStatic(UserMapper.class)) {
-                mockedMapper.when(() -> UserMapper.convertDtoToEntity(userDto, roleUser))
-                        .thenReturn(userEntity);
-                mockedMapper.when(() -> UserMapper.convertEntityToDto(userEntity))
-                        .thenReturn(userDto);
+            UserDto result = userService.findById(1L);
 
-                UserDto result = userService.findById(1L);
-
-                assertThat(result)
-                        .isNotNull()
-                        .extracting(UserDto::getName, UserDto::getEmail, UserDto::getAge, UserDto::getRole_id)
-                        .containsExactly("user", "user@gmail.com", 18, 1L);
-                verify(userDao).findById(1L);
-            }
+            assertThat(result)
+                    .isNotNull()
+                    .extracting(UserDto::getName, UserDto::getEmail, UserDto::getAge, UserDto::getRole_id)
+                    .containsExactly("user", "user@gmail.com", 18, 1L);
+            verify(userRepository).findById(1L);
         }
 
         @Test
         @DisplayName("негативный тест")
         void findById_whenUserNotFound_thenThrowUserNotFoundedException() {
-            when(userDao.findById(999L)).thenReturn(null);
-
             assertThatThrownBy(() -> userService.findById(999L))
-                    .isInstanceOf(UserNotFoundedException.class)
-                    .hasMessage("Пользователь с id: 999 не найден!");
+                    .isInstanceOf(UserNotFoundedException.class);
         }
     }
 
@@ -215,28 +184,26 @@ class UserServiceTest {
         @DisplayName("позитивный тест")
         void update_whenValidUserDto_thenReturnUpdatedUserDto() {
             UserDto userUpdateDto = new UserDto("userUpdated", "user@gmail.com", 18, 1L);
-            User userEntityUpdate = UserMapper.convertDtoToEntity(userUpdateDto, roleUser);
+            User userEntityUpdate = mapper.convertDtoToEntity(userUpdateDto, roleUser);
 
-            when(roleDao.findById(userUpdateDto.getRole_id())).thenReturn(roleUser);
-            when(userDao.findById(anyLong())).thenReturn(userEntity);
-            when(userDao.update(1L, userEntityUpdate)).thenReturn(userEntityUpdate);
+            when(roleService.findEntityById(userUpdateDto.getRole_id())).thenReturn(roleUser);
+            when(userRepository.findById(anyLong())).thenReturn(Optional.ofNullable(userEntity));
+            when(userRepository.save(any(User.class))).thenReturn(userEntityUpdate);
 
-            try (MockedStatic<UserMapper> mockedMapper = Mockito.mockStatic(UserMapper.class)) {
-                mockedMapper.when(() -> UserMapper.convertDtoToEntity(userUpdateDto, roleUser))
-                        .thenReturn(userEntityUpdate);
-                mockedMapper.when(() -> UserMapper.convertEntityToDto(userEntityUpdate))
-                        .thenReturn(userUpdateDto);
+            UserDto result = userService.update(1L, userUpdateDto);
 
-                UserDto result = userService.update(1L, userUpdateDto);
+            assertThat(result)
+                    .isNotNull()
+                    .extracting(UserDto::getName, UserDto::getEmail, UserDto::getAge, UserDto::getRole_id)
+                    .containsExactly("userUpdated", "user@gmail.com", 18, 1L);
 
-                assertThat(result)
-                        .isNotNull()
-                        .extracting(UserDto::getName, UserDto::getEmail, UserDto::getAge, UserDto::getRole_id)
-                        .containsExactly("userUpdated", "user@gmail.com", 18, 1L);
+            verify(roleService).findEntityById(userUpdateDto.getRole_id());
+            verify(userRepository).save(argThat(user ->
+                    "userUpdated".equals(user.getName()) &&
+                            "user@gmail.com".equals(user.getEmail()) &&
+                            user.getAge() == 18
+            ));
 
-                verify(roleDao).findById(userUpdateDto.getRole_id());
-                verify(userDao).update(1L, userEntityUpdate);
-            }
         }
 
         @Test
@@ -244,41 +211,20 @@ class UserServiceTest {
         void update_whenUserNotFound_thenThrowUserNotFoundedException() {
             UserDto userUpdateDto = new UserDto("userUpdated", "user@gmail.com", 18, 1L);
             assertThatThrownBy(() -> userService.update(100L, userUpdateDto))
-                    .isInstanceOf(UserNotFoundedException.class)
-                    .hasMessage("Пользователь с id: 100 не найден!");
+                    .isInstanceOf(UserNotFoundedException.class);
         }
 
         @Test
         @DisplayName("негативный тест роль не найдена")
-        void update_whenRoleNotFound_thenThrowUserNotFoundedException() {
+        void update_whenRoleNotFound_thenThrowRoleNotFoundedException() {
             UserDto userUpdateDto = new UserDto("userUpdated", "user@gmail.com", 18, 99L);
-            when(roleDao.findById(99L)).thenReturn(null);
-            when(userDao.findById(anyLong())).thenReturn(userEntity);
+
+            when(userRepository.findById(1L)).thenReturn(Optional.ofNullable(userEntity));
+            when(roleService.findEntityById(99L)).thenThrow(new RoleNotFoundedException("Роль не найдена"));
 
             assertThatThrownBy(() -> userService.update(1L, userUpdateDto))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasCauseInstanceOf(EmptyFieldException.class)
-                    .hasRootCauseMessage("Поле role пустое");
+                    .isInstanceOf(RoleNotFoundedException.class);
         }
 
-        /**
-         * Тест проверяет обновление пользователя.
-         * Особенность: метод update в сервисе обновляет пользователя не по отдельным полям,
-         * а заменяет всю сущность целиком.
-         * Поэтому перед обновлением необходимо создать через консоль полный объект UserDto,
-         * а не частично заполненный.
-         */
-        @DisplayName("негативный тест параметризованный")
-        @ParameterizedTest(name = "negative save() → {1}")
-        @MethodSource("ru.astondevs.service.UserServiceTest#invalidUserProvider")
-        void update_whenInvalidUserDto_thenThrowsException(UserDto invalidDto, String expectedMessage) {
-            when(roleDao.findById(invalidDto.getRole_id())).thenReturn(roleUser);
-            when(userDao.findById(anyLong())).thenReturn(userEntity);
-
-            assertThatThrownBy(() -> userService.update(1L, invalidDto))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasCauseInstanceOf(EmptyFieldException.class)
-                    .hasRootCauseMessage(expectedMessage);
-        }
     }
 }

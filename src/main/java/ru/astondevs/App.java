@@ -1,16 +1,12 @@
 package ru.astondevs;
 
-import ru.astondevs.controller.ConsoleController;
-import ru.astondevs.util.ConnectionManager;
-import ru.astondevs.util.LiquibaseRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-
+@SpringBootApplication
 public class App {
 
     public static void main(String[] args) {
-        LiquibaseRunner.runMigrations();
-        ConnectionManager.init();
-        ConsoleController consoleController = new ConsoleController();
-        consoleController.run();
+        SpringApplication.run(App.class, args);
     }
 }

@@ -1,13 +1,18 @@
 package ru.astondevs.entity;
 
 import jakarta.persistence.*;
-import ru.astondevs.dao.RoleDao;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
 @Table(name = "users", schema = "public")
+@NoArgsConstructor
+@Getter
+@Setter
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,50 +28,12 @@ public class User {
     @JoinColumn(name = "role_id")
     private Role role;
 
-    public User() {}
-
-    public String getName() {
-        return name;
-    }
-
     public User(String name, String email, int age, Role role) {
         this.name = name;
         this.email = email;
         this.age = age;
         this.create_at = LocalDateTime.now();
         this.role = role;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public int getAge() {
-        return age;
-    }
-
-    public void setAge(int age) {
-        this.age = age;
-    }
-
-    public LocalDateTime getCreate_at() {
-        return create_at;
-    }
-
-    public void setCreate_at(LocalDateTime create_at) {
-        this.create_at = create_at;
-    }
-
-    public Long getId() {
-        return id;
     }
 
     @Override
@@ -91,13 +58,5 @@ public class User {
                 ", age=" + age +
                 ", create_at=" + create_at +
                 '}';
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
     }
 }

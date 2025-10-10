@@ -1,9 +1,11 @@
 package ru.astondevs.util;
 
+import ru.astondevs.dto.RoleDto;
 import ru.astondevs.entity.Role;
 
 import java.util.List;
 import java.util.Scanner;
+import java.util.stream.IntStream;
 
 public class ConsoleHelper {
 
@@ -45,19 +47,23 @@ public class ConsoleHelper {
         return line;
     }
 
-    public Long readValidRoleId(List<Role> roles) {
+    public Long readValidRoleId(List<RoleDto> roles) {
         if (roles.isEmpty()) {
             System.out.println("❌ В базе данных нет ролей!");
             return 0L;
         }
 
-        List<Long> roleIds = roles.stream().map(Role::getId).toList();
+        List<Long> roleIds = IntStream.range(0, roles.size())
+                .mapToLong(i -> i + 1).boxed()
+                .toList();
         long number;
         boolean valid = false;
 
         do {
             System.out.println("Список ролей:");
-            roles.forEach(r -> System.out.println(r.getId() + " - " + r.getName()));
+            for (int i = 0; i < roles.size(); i++) {
+                System.out.println(roleIds.get(i) + " - " + roles.get(i).getName());
+            }
 
             number = readValidInt("Введите идентификатор роли пользователя: ");
             if (!roleIds.contains(number)) {

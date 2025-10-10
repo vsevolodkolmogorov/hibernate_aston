@@ -1,20 +1,26 @@
 package ru.astondevs.controller;
 
-import ru.astondevs.dao.RoleDao;
-import ru.astondevs.dao.UserDao;
+import org.springframework.stereotype.Component;
 import ru.astondevs.dto.UserDto;
+import ru.astondevs.service.RoleService;
 import ru.astondevs.service.UserService;
 import ru.astondevs.util.ConsoleHelper;
 
 import java.util.List;
 import java.util.Scanner;
 
+@Component
 public class ConsoleController {
-    private final UserService userService = new UserService(UserDao.getInstance(),RoleDao.getInstance());
-    private final RoleDao roleDao = RoleDao.getInstance();
+    private final UserService userService;
+    private final RoleService roleService;
     private final Scanner scanner = new Scanner(System.in);
     private final ConsoleHelper consoleHelper = new ConsoleHelper(scanner);
     private UserDto user = null;
+
+    public ConsoleController(UserService userService, RoleService roleService) {
+        this.userService = userService;
+        this.roleService = roleService;
+    }
 
     public void run() {
         printBanner();
@@ -43,7 +49,7 @@ public class ConsoleController {
         String name = consoleHelper.readValidLine("Введите имя: ");
         String email = consoleHelper.readValidLine("Введите почту: ");
         int age = consoleHelper.readValidInt("Введите возраст: ");
-        Long roleId = consoleHelper.readValidRoleId(roleDao.findAll());
+        Long roleId = consoleHelper.readValidRoleId(roleService.findAll());
 
         user = new UserDto(name, email, age, roleId);
 

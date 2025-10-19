@@ -1,14 +1,12 @@
 package ru.astondevs.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.Objects;
 
 @Entity
+@Data
 @NoArgsConstructor
 @Getter
 @Setter

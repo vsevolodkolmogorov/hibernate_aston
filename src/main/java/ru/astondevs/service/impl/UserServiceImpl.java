@@ -11,6 +11,7 @@ import ru.astondevs.repository.UserRepository;
 import ru.astondevs.service.RoleInternalService;
 import ru.astondevs.service.UserService;
 import ru.astondevs.util.BeanUtilsHelper;
+import ru.astondevs.util.KafkaEventPublisher;
 import ru.astondevs.util.UserMapper;
 
 import java.lang.reflect.Field;
@@ -18,25 +19,34 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static ru.astondevs.dto.enums.KafkaTopics.USER_CREATED;
+import static ru.astondevs.dto.enums.KafkaTopics.USER_DELETED;
+
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
     private final UserRepository repository;
     private final RoleInternalService roleService;
     private final UserMapper userMapper;
+    private final KafkaEventPublisher eventPublisher;
     private static final Logger log = Logger.getLogger(UserServiceImpl.class.getName());
+
 
     public UserDto save(UserDto userDto) {
         Role role = roleService.findEntityById(userDto.getRole_id());
         User user = userMapper.convertDtoToEntity(userDto, role);
         userFieldsValidation(user);
         User userSaved = repository.save(user);
-        return userMapper.convertEntityToDto(userSaved);
+        UserDto userResultDto = userMapper.convertEntityToDto(userSaved);
+        eventPublisher.publish(USER_CREATED.name, userResultDto.getEmail(), userResultDto);
+        return userResultDto;
     }
 
     public void delete(Long id) {
         User user = findEntityById(id);
         repository.delete(user);
+        UserDto userResultDto = userMapper.convertEntityToDto(user);
+        eventPublisher.publish(USER_DELETED.name, userResultDto.getEmail(), userResultDto);
     }
 
     public List<UserDto> findAll() {

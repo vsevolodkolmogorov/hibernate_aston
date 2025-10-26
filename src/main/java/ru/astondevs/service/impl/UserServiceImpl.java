@@ -3,6 +3,8 @@ package ru.astondevs.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.astondevs.dto.UserDto;
+import ru.astondevs.dto.UserEventDto;
+import ru.astondevs.dto.enums.EventType;
 import ru.astondevs.entity.Role;
 import ru.astondevs.entity.User;
 import ru.astondevs.errors.EmptyFieldException;
@@ -16,11 +18,8 @@ import ru.astondevs.util.UserMapper;
 
 import java.lang.reflect.Field;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import static ru.astondevs.dto.enums.KafkaTopics.USER_CREATED;
-import static ru.astondevs.dto.enums.KafkaTopics.USER_DELETED;
+import static ru.astondevs.dto.enums.KafkaTopics.USER_EVENT;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +28,6 @@ public class UserServiceImpl implements UserService {
     private final RoleInternalService roleService;
     private final UserMapper userMapper;
     private final KafkaEventPublisher eventPublisher;
-    private static final Logger log = Logger.getLogger(UserServiceImpl.class.getName());
 
 
     public UserDto save(UserDto userDto) {
@@ -37,16 +35,16 @@ public class UserServiceImpl implements UserService {
         User user = userMapper.convertDtoToEntity(userDto, role);
         userFieldsValidation(user);
         User userSaved = repository.save(user);
-        UserDto userResultDto = userMapper.convertEntityToDto(userSaved);
-        eventPublisher.publish(USER_CREATED.name, userResultDto.getEmail(), userResultDto);
-        return userResultDto;
+        UserEventDto userEventDto = userMapper.convertEntityToEventDto(userSaved, EventType.CREATED);
+        eventPublisher.publish(USER_EVENT.name, userEventDto.getEmail(), userEventDto);
+        return userMapper.convertEntityToDto(userSaved);
     }
 
     public void delete(Long id) {
         User user = findEntityById(id);
         repository.delete(user);
-        UserDto userResultDto = userMapper.convertEntityToDto(user);
-        eventPublisher.publish(USER_DELETED.name, userResultDto.getEmail(), userResultDto);
+        UserEventDto userEventDto = userMapper.convertEntityToEventDto(user, EventType.DELETED);
+        eventPublisher.publish(USER_EVENT.name, userEventDto.getEmail(), userEventDto);
     }
 
     public List<UserDto> findAll() {
@@ -88,14 +86,11 @@ public class UserServiceImpl implements UserService {
                 if (value == null
                         || (value instanceof String && ((String) value).isEmpty())
                         || (value instanceof Number && ((Number) value).intValue() == 0)) {
-                    log.warning("Поле " + field.getName() + " пустое");
                     throw new EmptyFieldException("Поле " + field.getName() + " пустое");
                 }
             } catch (IllegalAccessException e) {
-                log.log(Level.SEVERE, "Ошибка доступа к полю: " + e.getMessage(), e);
                 throw new EmptyFieldException(e.getMessage());
             }
         }
-        log.info("Валидация полей пользователя успешно завершена");
     }
 }

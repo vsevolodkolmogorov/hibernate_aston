@@ -5,15 +5,22 @@ import lombok.*;
 
 import java.util.Objects;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 @Entity
 @Data
 @NoArgsConstructor
 @Getter
 @Setter
+@Schema(name = "Role", description = "Сущность роли пользователя")
 public class Role {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Schema(description = "ID роли", example = "1", required = true)
     private Long id;
+
+    @Schema(description = "Название роли", example = "ADMIN", required = true)
     private String name;
 
     public Role(String name) {
@@ -41,3 +48,4 @@ public class Role {
         return Objects.hashCode(id);
     }
 }
+

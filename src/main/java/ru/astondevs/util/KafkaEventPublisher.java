@@ -16,9 +16,9 @@ public class KafkaEventPublisher {
         kafkaTemplate.send(topic, key, payload)
                 .whenComplete((result, ex) -> {
                     if (ex == null) {
-                        log.info("Sent event for user" + topic + " to topic " +  key);
+                        log.info("Sent event for user " + key + " to topic " +  topic);
                     } else {
-                        log.warning("Failed to send event for user " + topic + " " + ex);
+                        log.warning("Failed to send event for user " + key + " " + ex);
                     }
                 });
     }

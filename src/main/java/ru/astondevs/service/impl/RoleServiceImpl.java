@@ -34,14 +34,14 @@ public class RoleServiceImpl implements RoleService, RoleInternalService {
     public List<RoleDto> findAll() {
         List<Role> roleList = repository.findAll();
         if (roleList.isEmpty()) throw new RoleNotFoundedException("Ролей нет в базе данных");
-        return roleList.stream().map(role -> new RoleDto(role.getName())).toList();
+        return roleList.stream().map(role -> new RoleDto(role.getId(),role.getName())).toList();
     }
 
     public RoleDto findById(Long id) {
         Role role = repository.findById(id)
                 .orElseThrow(() -> new RoleNotFoundedException("Роль c id " + id + " не найден"));
 
-        return new RoleDto(role.getName());
+        return new RoleDto(role.getId(), role.getName());
     }
 
     public Role findEntityById(Long id) {
